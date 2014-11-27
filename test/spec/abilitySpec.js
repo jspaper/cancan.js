@@ -5,10 +5,14 @@ function Post(payload) {
         this.id = payload.id || 1;
         this.title = payload.title || 'Hello';
         this.body = payload.body || 'This is a blog post';
+        this.tags = payload.tags || [];
+        this.comment = payload.comment || {};
     } else {
         this.id = 1;
         this.title = 'Hello';
         this.body = 'This is a blog post';
+        this.tags = [];
+        this.comment = {};
     }
 }
 
@@ -145,14 +149,14 @@ describe('Ability', function() {
         expect(a.can('increment', 123)).toBe(true);
     });
 
-    it('should automatically alias index and show into read calls', function () {
+    it('should automatically alias index and show into read calls', function() {
         var a = new Ability();
         a.setCan('read', 'all');
         expect(a.can('index', 123)).toBe(true);
         expect(a.can('show', 123)).toBe(true);
     });
 
-    it('should automatically alias new and edit into create and update calls', function () {
+    it('should automatically alias new and edit into create and update calls', function() {
         var a = new Ability();
         a.setCan('create', 'all');
         a.setCan('update', 'all');
@@ -160,7 +164,7 @@ describe('Ability', function() {
         expect(a.can('edit', 123)).toBe(true);
     });
 
-    it('should be able to specify multiple actions and match any', function () {
+    it('should be able to specify multiple actions and match any', function() {
         var a = new Ability();
         a.setCan(['read', 'update'], 'all');
         expect(a.can('read', 123)).toBe(true);
@@ -168,7 +172,7 @@ describe('Ability', function() {
         expect(a.cannot('count', 123)).toBe(true);
     });
 
-    it('should be able to specify multiple classes and match any instances', function () {
+    it('should be able to specify multiple classes and match any instances', function() {
         var a = new Ability();
         a.setCan('update', [Post, Comment]);
         expect(a.can('update', new Post())).toBe(true);
@@ -176,7 +180,7 @@ describe('Ability', function() {
         expect(a.cannot('update', new RegExp())).toBe(true);
     });
 
-    it('should be able to specify multiple classes and match any classes', function () {
+    it('should be able to specify multiple classes and match any classes', function() {
         var a = new Ability();
         a.setCan('update', [Post, Comment]);
         expect(a.can('update', Post)).toBe(true);
@@ -184,13 +188,116 @@ describe('Ability', function() {
         expect(a.cannot('update', RegExp)).toBe(true);
     });
 
-    it('should support custom objects in the rule', function () {
+    it('should support custom objects in the rule', function() {
         var a = new Ability();
         a.setCan('read', 'stats')
         expect(a.can('read', 'stats')).toBe(true);
         expect(a.cannot('update', 'stats')).toBe(true);
         expect(a.cannot('read', 'nonstats')).toBe(true);
     });
+
+    it('should support "cannot" method to define what user cannot do', function() {
+        var a = new Ability();
+        a.setCan('read', 'all');
+        a.setCannot('read', Post);
+        expect(a.can('read', 'foo')).toBe(true);
+        expect(a.cannot('read', new Post())).toBe(true);
+    });
+
+    it('should append aliased actions', function() {
+        var a = new Ability();
+        a.aliasAction(['update'], 'modify');
+        a.aliasAction(['destroy'], 'modify');
+        expect(a.aliasedActions['modify'].all(/update|destroy/)).toBe(true);
+    });
+
+    it('should clear aliased actions', function () {
+        var a = new Ability();
+        a.aliasAction(['update'], 'modify')
+        a.clearAliasedActions()
+        expect(a.aliasedActions['modify']).toBeUndefined();
+    });
+
+    it('should use conditions as third parameter and determine abilities from it', function () {
+        var a = new Ability();
+        a.setCan('read', Post, { title: 'Hello'});
+        expect(a.can('read', new Post({ title: 'Hello' }))).toBe(true);
+        expect(a.cannot('read', new Post({ title: 'Goodbye' }))).toBe(true);
+        expect(a.can('read', Post)).toBe(true); // TODO NOT SURE
+    });
+
+    it('should allow an array of options in conditions hash', function () {
+        var a = new Ability();
+        a.setCan('read', Post, {
+            tags: ['awesome', 'cool', 'pretty']
+        });
+        expect(a.can('read', new Post({
+            tags: ['awesome', 'cool', 'pretty']
+        }))).toBe(true);
+        expect(a.cannot('read', new Post({
+            tags: ['ugly', 'bad']
+        }))).toBe(true);
+    });
+
+    it('should allow nested hashes in conditions hash', function () {
+        var a = new Ability();
+        a.setCan('read', Post, {
+            comment: {
+                user_id: 1
+            }
+        });
+        expect(a.can('read', new Post({
+            comment: {
+                user_id: 1
+            }
+        }))).toBe(true);
+        expect(a.cannot('read', new Post({
+            comment: {
+                user_id: 2
+            }
+        }))).toBe(true);
+    });
+
+    it('should allow false values conditions hash', function () {
+        var a = new Ability();
+        a.setCan('read', Post, {
+            comment: {
+                is_protected: false
+            }
+        });
+        expect(a.can('read', new Post({
+            comment: {
+                is_protected: false
+            }
+        }))).toBe(true);
+        expect(a.cannot('read', new Post({
+            comment: {
+                is_protected: true
+            }
+        }))).toBe(true);
+    });
+    it('should not stop at cannot definition when comparing class', function () {
+        var a = new Ability();
+        a.setCan('read', Post);
+        a.setCannot('read', Post, {
+            id: 1
+        });
+        expect(a.can('read', new Post({
+            id: 2
+        }))).toBe(true);
+        expect(a.cannot('read', new Post({
+            id: 1
+        }))).toBe(true);
+        expect(a.can('read', Post)).toBe(true);
+    });
+
+    it('should stop at cannot definition when no hash is present', function () {
+        var a = new Ability();
+        a.setCan('read', 'all');
+        a.setCannot('read', Post);
+        expect(a.cannot('read', new Post())).toBe(true);
+        expect(a.cannot('read', Post)).toBe(true);
+    })
 });
 
 describe('Rule fundamental', function() {

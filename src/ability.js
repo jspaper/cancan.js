@@ -31,6 +31,7 @@ Ability.prototype.can = function(action, subject) {
     var match = relevantRules.find(function (rule) {
         return rule.matchesConditions(action, subject);
     });
+    // console.log('match', JSON.stringify(match));
     if (match) {
         return match.base_behavior;
     } else {
@@ -51,6 +52,16 @@ Ability.prototype.setCan = function(action, subject, conditions) {
     }));
 };
 
+Ability.prototype.setCannot = function(action, subject, conditions) {
+    this.rules.push(new Rule({
+        base_behavior: false,
+        action: action,
+        subject: subject,
+        conditions: conditions
+    }));
+};
+
+
 Ability.prototype.aliasAction = function(actions, alias) {
     this.validateTarget(alias);
     if (!Array.isArray(this.aliasedActions[alias])) {
@@ -61,6 +72,11 @@ Ability.prototype.aliasAction = function(actions, alias) {
 
 Ability.prototype.validateTarget = function(target) {
 };
+
+Ability.prototype.clearAliasedActions = function() {
+    this.aliasedActions = {};
+};
+
 
 Ability.prototype.expandActions = function(actions) {
     var tmp = actions.map(function (action) {
@@ -81,7 +97,9 @@ Ability.prototype.expandActions = function(actions) {
 };
 
 Ability.prototype.relevantRules = function(action, subject) {
-    return this.rules.slice(0).filter(function (rule) {
+    // Why reverse()?
+    // Latest rule with the same subject would overwrite the front rule.
+    return this.rules.slice(0).reverse().filter(function (rule) {
         rule.expandedActions = this.expandActions(rule.actions);
         return rule.isRelevant(action, subject);
     }, this);
@@ -128,12 +146,14 @@ function Rule (payload) {
 Rule.prototype.isRelevant = function(action, subject) {
     var matcherA = this.matchesAction(action);
     var matcherB = this.matchesSubject(subject);
-    // console.log('is relevant', matcherA, matcherB);
+    // console.log('is relevant', (this.base_behavior ? 'can' : 'cannot'), matcherA, matcherB);
     return matcherA && matcherB;
 };
 
 // TODO action never being used
 Rule.prototype.matchesConditions = function(action, subject) {
+    // console.log('matchesConditions', JSON.stringify(subject), JSON.stringify(this));
+
     if (Object.isObject(this.conditions) && !Object.isEmpty(this.conditions) && !this.isClass(subject)) {
         // model with conditions
         return this.matchesConditionsHash(subject);
@@ -142,7 +162,7 @@ Rule.prototype.matchesConditions = function(action, subject) {
             // Model or model without conditions
             return true;
         } else {
-            this.base_behavior;
+            return this.base_behavior;
         }
     }
 };
@@ -183,7 +203,14 @@ Rule.prototype.matchesSubject = function(subject) {
 
 // @klass 'Post' || Post
 Rule.prototype.matchesSubjectClass = function(Klass) {
-    if (typeof Klass === 'string') Klass = eval(Klass);
+    if (typeof Klass === 'string') {
+        try {
+            Klass = eval(Klass);
+        } catch (err) {
+            // When function is not exist
+            return false;
+        }
+    }
 
     return this.subjects.slice().any(function (sub) {
         return eval(sub) === Klass;
@@ -210,7 +237,8 @@ Rule.prototype.matchesConditionsHash = function(subject, conditions) {
                     return attr && me.matchesConditionsHash(attr, value);
                 }
             } else if (Array.isArray(value)) {
-                return value.include(attr) || value.sortBy('length').toString() === attr.sortBy('length').toString(); // TODO
+                var re = new RegExp(attr.join('|'));
+                return value.all(re) || value.sortBy('length').toString() === attr.sortBy('length').toString(); // TODO
             } else {
                 return attr === value;
             }
