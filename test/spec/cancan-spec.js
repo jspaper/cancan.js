@@ -141,12 +141,11 @@ describe('Ability', function() {
 
     it('should allow deeply nested aliased actions', function() {
         var a = new Ability();
-        a.aliasAction(['increment'], 'sort');
-        a.aliasAction(['sort'], 'modify');
-        a.setCan('modify', 'all');
-        expect(a.can('sort', 123)).toBe(true);
-        expect(a.can('modify', 123)).toBe(true);
-        expect(a.can('increment', 123)).toBe(true);
+        a.aliasAction(['create', 'update', 'delete'], 'manage');
+        a.aliasAction(['manage_metting', 'manage_sharer'], 'update');
+        a.setCan('manage', Post);
+        expect(a.can('manage_metting', new Post())).toBe(true);
+        expect(a.can('create', new Post())).toBe(true);
     });
 
     it('should automatically alias index and show into read calls', function() {

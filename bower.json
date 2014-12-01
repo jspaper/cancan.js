@@ -6,7 +6,7 @@
     "Josh Chang <jspaper.chang@gmail.com>"
   ],
   "description": "Authentication with javascript",
-  "main": "src/ability.js",
+  "main": "src/cancan.js",
   "moduleType": [
     "globals"
   ],

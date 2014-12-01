@@ -5,7 +5,7 @@ module.exports = function (grunt) {
             app: {
                 src: 'src/**/*.js',
                 options: {
-                    specs: 'test/spec/*Spec.js',
+                    specs: 'test/spec/*.js',
                     vendor: ['bower_components/sugar/release/sugar.min.js']
                 }
             }
@@ -14,7 +14,7 @@ module.exports = function (grunt) {
             options: {
                 livereload: 3500
             },
-            files: ['src/**/*.js', 'test/spec/*Spec.js'],
+            files: ['src/**/*.js', 'test/spec/*.js'],
             tasks: ['jasmine:app']
         }
     });
