@@ -1,6 +1,6 @@
-'use strict';
-
 (function (window) {
+
+    'use strict';
 
     window.Ability = function Ability (params) {
         this.init(params);
