@@ -1,3 +1,5 @@
+'use strict';
+
 (function (window) {
 
     window.Ability = function Ability (params) {
@@ -26,7 +28,6 @@
         };
     };
 
-
     Ability.prototype.can = function(action, subject) {
         var relevantRules = this.relevantRules(action, subject);
         // console.log('relevantRules', JSON.stringify(relevantRules));
@@ -45,6 +46,10 @@
         return !this.can(action, subject);
     };
 
+    // Parameters
+    // @action: <String>
+    // @subject: <Model> | <model> | <String>
+    // @conditions: <Hash Object> | <Function>
     Ability.prototype.setCan = function(action, subject, conditions) {
         this.rules.push(new Rule({
             base_behavior: true,
@@ -63,22 +68,16 @@
         }));
     };
 
-
     Ability.prototype.aliasAction = function(actions, alias) {
-        this.validateTarget(alias);
         if (!Array.isArray(this.aliasedActions[alias])) {
             this.aliasedActions[alias] = [];
         }
         this.aliasedActions[alias] = this.aliasedActions[alias].concat(actions);
     };
 
-    Ability.prototype.validateTarget = function(target) {
-    };
-
     Ability.prototype.clearAliasedActions = function() {
         this.aliasedActions = {};
     };
-
 
     Ability.prototype.expandActions = function(actions) {
         var tmp = actions.map(function (action) {
@@ -156,7 +155,9 @@
     Rule.prototype.matchesConditions = function(action, subject) {
         // console.log('matchesConditions', JSON.stringify(subject), JSON.stringify(this));
 
-        if (Object.isObject(this.conditions) && !Object.isEmpty(this.conditions) && !this.isClass(subject)) {
+        if (Object.isFunction(this.conditions)) {
+            return this.matchesConditionsHash(subject, this.conditions);
+        } else if (Object.isObject(this.conditions) && !Object.isEmpty(this.conditions) && !this.isClass(subject)) {
             // model with conditions
             return this.matchesConditionsHash(subject);
         } else {
@@ -224,28 +225,36 @@
         if (!conditions) {
             conditions = this.conditions;
         }
-        if (Object.isEmpty(conditions)) {
-            return true;
-        } else {
-            // All of conditions must be satisified.
-            return Object.all(conditions, function (key, value) {
-                var attr = subject[key];
-                if (Object.isObject(value)) {
-                    if (Array.isArray(attr)) {
-                        return attr.any(function (element) {
-                            return this.matchesConditionsHash(element, value);
-                        }, me);
+
+        if (Object.isFunction(conditions)) {
+            return conditions(subject);
+        } else if (Object.isObject(conditions)) {
+            if (Object.isEmpty(conditions)) {
+                return true;
+            } else {
+                // All of conditions must be satisified.
+                return Object.all(conditions, function (key, value) {
+                    var attr = subject[key];
+                    if (Object.isObject(value)) {
+                        if (Array.isArray(attr)) {
+                            return attr.any(function (element) {
+                                return this.matchesConditionsHash(element, value);
+                            }, me);
+                        } else {
+                            return attr && me.matchesConditionsHash(attr, value);
+                        }
+                    } else if (Array.isArray(value)) {
+                        var re = new RegExp(attr.join('|'));
+                        return value.all(re) || value.sortBy('length').toString() === attr.sortBy('length').toString(); // TODO
                     } else {
-                        return attr && me.matchesConditionsHash(attr, value);
+                        return attr === value;
                     }
-                } else if (Array.isArray(value)) {
-                    var re = new RegExp(attr.join('|'));
-                    return value.all(re) || value.sortBy('length').toString() === attr.sortBy('length').toString(); // TODO
-                } else {
-                    return attr === value;
-                }
-            });
+                });
+            }
+        } else if (conditions === undefined) {
+            return true;
         }
+
     };
 
 })(window);

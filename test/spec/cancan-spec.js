@@ -1,5 +1,7 @@
 'use strict';
 
+console.log = jasmine.createSpy('log');
+
 function Post(payload) {
     if (payload) {
         this.id = payload.id || 1;
@@ -275,6 +277,7 @@ describe('Ability', function() {
             }
         }))).toBe(true);
     });
+
     it('should not stop at cannot definition when comparing class', function () {
         var a = new Ability();
         a.setCan('read', Post);
@@ -296,7 +299,16 @@ describe('Ability', function() {
         a.setCannot('read', Post);
         expect(a.cannot('read', new Post())).toBe(true);
         expect(a.cannot('read', Post)).toBe(true);
-    })
+    });
+
+    it('should work when definition passing a block function', function () {
+        var a = new Ability();
+        a.setCan('read', 'Post', function (post) {
+            return post.id === 2;
+        });
+        expect(a.can('read', new Post({ id: 2}))).toBe(true);
+        expect(a.cannot('read', new Post({ id: 1}))).toBe(true);
+    });
 });
 
 describe('Rule fundamental', function() {
